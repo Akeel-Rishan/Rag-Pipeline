@@ -5,8 +5,9 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 2 adds PDF loading into dictionaries with text, physical page number,
-and source filename. No chunking, embeddings, retrieval, or generation yet.
+Phase 3 adds a plain Python character chunker on top of PDF page records.
+Chunks preserve source and physical page number and receive a UUID.
+No embeddings, retrieval, or generation yet.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -38,7 +39,7 @@ issues. Optional activation: `.\.venv\Scripts\Activate.ps1`.
 The first command prints:
 
 ```text
-Hybrid RAG: PDF loading is ready. Run scripts/load_pdf.py to load a PDF.
+Hybrid RAG: PDF loading and character chunking are ready. Run scripts/compare_chunks.py.
 ```
 
 The second should report no broken requirements. The third should point to
@@ -83,11 +84,81 @@ PDF drawing commands are only for the fixed ASCII teaching fixture.
 
 Reference: [pypdf text extraction documentation](https://pypdf.readthedocs.io/en/stable/user/extract-text.html).
 
+## Chunking (Phase 3)
+
+```python
+from hybrid_rag.ingestion.pdf_loader import load_pdf
+from hybrid_rag.ingestion.chunking import chunk_documents
+
+pages = load_pdf("data/sample/example.pdf")
+chunks = chunk_documents(pages, chunk_size=300, overlap=50)
+```
+
+Output records have `chunk_id`, `text`, `page`, and `source`. Lengths count
+Python Unicode code points, not tokens or bytes. The window advances by
+`chunk_size - overlap`. Both parameters must be integers, with
+`chunk_size > 0` and `0 <= overlap < chunk_size`. The default overlap is 100;
+set it explicitly when experimenting with smaller sizes.
+
+The chunker processes pages independently, never mutates input records, skips
+empty text, and preserves whitespace in nonempty text. It stops when a window
+reaches the page end, avoiding a redundant overlap-only tail. It can split
+words, sentences, and even multi-code-point visible characters. It provides
+no semantic boundary detection. UUID4 IDs are practically unique but change
+on reruns; they do not provide idempotent database ingestion.
+
+### Compare 300 vs 1000 characters
+
+```powershell
+.\.venv\Scripts\python.exe scripts/compare_chunks.py
+.\.venv\Scripts\python.exe scripts/compare_chunks.py --show-text
+.\.venv\Scripts\python.exe scripts/compare_chunks.py --overlap 0
+.\.venv\Scripts\python.exe scripts/compare_chunks.py --pdf "data/raw/your-document.pdf" --show-text
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+The default input is the original teaching text in
+`data/sample/chunking_example.txt`, represented as a single synthetic page.
+The tiny Phase 2 PDF is too short to demonstrate these two sizes well.
+Both configurations use the same input and 50 characters of overlap by
+default. Compare chunk counts, lengths, repeated characters, and boundaries.
+The overlap has different percentages at the two sizes: about 17% vs 5%.
+This is a fixed absolute-overlap comparison, not a fixed-ratio comparison.
+
+Find the evidence answering: "When can project notes be deleted if an
+investigation is still active?" Is the rule and its exception in one chunk?
+Inspect the context before and after each split. Repeat with zero overlap.
+These observations do not measure retrieval accuracy; that needs retrieval
+and labeled questions in a later phase.
+
+### Optional library comparison (not installed or used)
+
+LangChain's separate `langchain-text-splitters` package can preserve paragraph
+and word boundaries where possible with a recursive character splitter:
+
+```python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=300, chunk_overlap=50, length_function=len,
+)
+library_chunks = splitter.create_documents(
+    [page["text"] for page in pages],
+    metadatas=[{"source": page["source"], "page": page["page"]} for page in pages],
+)
+```
+
+The result contains LangChain Document objects with `page_content` and
+`metadata`, not our dictionaries. It does not assign our `chunk_id` field.
+Overlap is a target and depends on separator boundaries. This is not
+embedding-based semantic splitting or identical fixed-window output.
+Reference: [recursive splitting documentation](https://docs.langchain.com/oss/python/integrations/splitters/recursive_text_splitter).
+
 ## Structure
 
 - `src/hybrid_rag/`: application package and future component subpackages.
-- `tests/`: PDF loader tests.
-- `scripts/`: PDF loading example and synthetic fixture generator.
+- `tests/`: PDF loader and chunker tests.
+- `scripts/`: PDF loading, sample generation, and chunk-size comparison.
 - `data/sample/`: small, shareable example documents.
 - `data/raw/`: local input documents, excluded from Git.
 - `data/processed/`: generated data, excluded from Git.

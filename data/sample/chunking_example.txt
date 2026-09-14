@@ -1,0 +1,19 @@
+Document loading and evidence
+
+A knowledge assistant starts with source material. Loading a document converts a file into text records that a program can inspect. Each record should retain its source and page number. Those fields help a reader find the original evidence, but they do not prove that extraction was correct. A scanned page may contain an image without a text layer. A table may become a sequence of words whose relationships are difficult to recover.
+
+Choosing a retrieval unit
+
+A page is a convenient loading unit because it has a clear location in a PDF. It is not always a convenient retrieval unit. One page might contain several unrelated sections, while an explanation can continue across multiple pages. A chunk is a smaller unit chosen for later search. Small chunks can focus on a particular fact, but a sentence about a policy exception may be separated from the policy it qualifies. Large chunks retain more explanation while also including more text that a question does not need.
+
+Boundaries and overlap
+
+A character window has a start position and an end position. Moving the start forward by less than the window length repeats some text in the next window. This repeated region is the overlap. It can keep a short explanation visible on both sides of a split. It does not guarantee that a long argument or a table will fit in one chunk. For this teaching example, the archival rule is to retain project notes for seven years after project closure. The exception is that notes belonging to an active investigation remain available until the investigation ends, even if seven years have passed.
+
+Inspecting the result
+
+To compare chunking strategies, first keep the source text fixed. Look at the final words of one chunk and the first words of the next. Check whether a split separates a question's subject from the fact needed to answer it. Count how much text is repeated and whether the same passage would occupy several search results. A larger number of chunks is not evidence of better retrieval. Without a question set and an actual retriever, this experiment reveals boundary behavior and duplication rather than search accuracy.
+
+Preserving provenance
+
+Our first chunker keeps every chunk within one page so its page number is unambiguous. It does not join a sentence that crosses a page boundary. Each emitted chunk receives a new identifier, and the source filename remains attached. Identical filenames from different folders are still ambiguous. A later ingestion lifecycle will need document identity and a way to replace old records. For now, the useful debugging habit is to inspect the original page, its extracted text, and its chunks in that order.
