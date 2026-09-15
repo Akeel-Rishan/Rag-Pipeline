@@ -1,6 +1,7 @@
 # Local Python environment and generated Python files
 .venv/
 .cache/
+.qdrant/
 __pycache__/
 *.py[cod]
 *.egg-info/

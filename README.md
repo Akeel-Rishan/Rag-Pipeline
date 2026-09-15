@@ -5,9 +5,8 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 4 adds local embeddings and a manual cosine similarity demonstration.
-PDF loading and character chunking preserve source and page metadata.
-There is no vector database, retrieval pipeline, or answer generation yet.
+Phase 5 adds persistent Qdrant storage, repeatable point IDs, and basic vector
+similarity search. There is no BM25, fusion, reranking, or answer generation.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -39,7 +38,7 @@ issues. Optional activation: `.\.venv\Scripts\Activate.ps1`.
 The first command prints:
 
 ```text
-Hybrid RAG: local embeddings are ready. Run scripts/demo_embeddings.py.
+Hybrid RAG: vector storage is ready. Run scripts/demo_vector_store.py.
 ```
 
 The second should report no broken requirements. The third should point to
@@ -218,6 +217,73 @@ model is a small English baseline, not a multilingual or domain-quality claim.
 References: [FastEmbed supported models](https://qdrant.github.io/fastembed/examples/Supported_Models/)
 and [role-specific embedding methods](https://qdrant.github.io/fastembed/qdrant/Retrieval_with_FastEmbed/).
 
+## Vector storage (Phase 5)
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe scripts/demo_vector_store.py
+.\.venv\Scripts\python.exe scripts/demo_vector_store.py --query "Why keep source and page metadata?"
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+The default uses Qdrant client's persistent local mode in `.qdrant/`, with no
+Docker or server. Local mode performs exact search and is suitable for small
+datasets and tests; it does not demonstrate server HNSW performance. One
+process should own the local storage at a time; always close its client.
+Run commands from the project root. Embedding initialization may still check
+the model host, even when weights are cached.
+
+The demo indexes the longer teaching text as one synthetic page, twice,
+verifies that the point count does not increase, and prints a query and the
+top three chunks with scores, source, page and IDs. It also accepts
+`--pdf "data/raw/example.pdf" --document-id "corpus/example.pdf"`. Use a stable
+corpus identity across machines; the default resolved path changes when moved.
+The generated UUID5 point ID replaces the random chunk ID in a copied record;
+the original chunk remains unchanged. Stored `chunk_id` equals the point ID.
+
+IDs depend on document identity, physical page, ordered chunk position and
+text. Repeat the same complete input to upsert the same points. Changing text,
+chunk settings, or document identity can leave obsolete points behind. This
+is duplicate-safe repeat indexing, not automatic document synchronization.
+Indexing uses batches of 64; earlier batches survive a later batch failure.
+`wait=True` waits for an update to apply, not for a document-wide transaction.
+
+Collection creation sets a 384-dimensional named vector with cosine distance.
+Existing collections are validated, never deleted or silently recreated.
+The vector name hashes an explicit embedding-space label (model, installed
+FastEmbed version and processing version). This guards against accidental
+schema reuse, but callers must declare the label honestly; model artifact
+revisions are not automatically pinned or verified. Use a new collection
+when changing the embedding space. Provision collections separately when
+multiple indexing workers are introduced; initial creation is single-writer.
+
+Points contain vector, chunk_id, text, page, source, document_id and the
+embedding-space label. Search embeds the query, calls `query_points`, and
+returns scored payloads without transferring stored vectors. Higher cosine
+scores mean closer vector directions. Results are not guaranteed answers;
+even an unrelated question can receive top-k matches without a threshold.
+
+### Optional server connection
+
+These process environment variables select an existing Qdrant server:
+
+```powershell
+$env:QDRANT_URL = "http://localhost:6333"
+$env:QDRANT_COLLECTION = "hybrid_rag_bge_small_v1"
+# Set QDRANT_API_KEY in your environment if the server requires it.
+```
+
+If URL is unset, QDRANT_PATH selects local disk storage instead. `.env.example`
+documents configuration but is not automatically loaded. No server has been
+installed by this phase. Server connectivity and distributed behavior are
+not covered by the local tests. A server can use HNSW approximate search or
+exact scanning depending on configuration and data size. Approximation trades
+some recall for speed; local exact results are useful as a reference.
+
+References: [Qdrant local mode](https://github.com/qdrant/qdrant-client),
+[collections](https://qdrant.tech/documentation/manage-data/collections/),
+[upsert semantics](https://api.qdrant.tech/api-reference/points/upsert-points).
+
 ## Structure
 
 - `src/hybrid_rag/`: application package and future component subpackages.
@@ -234,8 +300,8 @@ Empty folders contain `.gitkeep` files because Git tracks files, not folders.
 
 ## Configuration
 
-`.env.example` is a public template. Phase 1 requires no configuration and
-does not load `.env` files. Future phases will introduce settings when needed.
+`.env.example` is a public template. Qdrant settings read the process
+environment; `.env` files are not loaded automatically.
 Keep real credentials out of source control. Git ignore rules do not remove
 files that have already been tracked.
 
