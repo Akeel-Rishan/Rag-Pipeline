@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A Hybrid RAG Knowledge Assistant built incrementally."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["pypdf>=6.18,<7"]
+dependencies = ["pypdf>=6.18,<7", "fastembed>=0.7,<0.8"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]

@@ -1,5 +1,6 @@
 # Local Python environment and generated Python files
 .venv/
+.cache/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -26,4 +27,3 @@ evals/reports/
 .vscode/
 .DS_Store
 Thumbs.db
-

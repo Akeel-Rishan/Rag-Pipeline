@@ -3,7 +3,7 @@
 
 def main() -> None:
     """Confirm that Python can run the installed package."""
-    print("Hybrid RAG: PDF loading and character chunking are ready. Run scripts/compare_chunks.py.")
+    print("Hybrid RAG: local embeddings are ready. Run scripts/demo_embeddings.py.")
 
 
 if __name__ == "__main__":
