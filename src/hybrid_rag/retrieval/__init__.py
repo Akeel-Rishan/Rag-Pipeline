@@ -1,1 +1,1 @@
-"""Future vector, lexical, and hybrid retrieval components."""
+"""Retrieval components return evidence without generating an answer."""

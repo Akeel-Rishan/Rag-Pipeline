@@ -5,8 +5,9 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 5 adds persistent Qdrant storage, repeatable point IDs, and basic vector
-similarity search. There is no BM25, fusion, reranking, or answer generation.
+Phase 6 adds basic vector retrieval, inspectable context construction,
+OpenAI-compatible answer generation, and source/page citations. There is no
+BM25, fusion, reranking, conversation memory, or retrieval evaluation yet.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -284,11 +285,72 @@ References: [Qdrant local mode](https://github.com/qdrant/qdrant-client),
 [collections](https://qdrant.tech/documentation/manage-data/collections/),
 [upsert semantics](https://api.qdrant.tech/api-reference/points/upsert-points).
 
+## Basic vector RAG (Phase 6)
+
+The Phase 6 flow is:
+
+```text
+question -> query embedding -> Qdrant vector search -> top-k chunks
+         -> labeled context -> chat LLM -> cited answer
+```
+
+Run the completely local, deterministic verification first:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/demo_rag.py --offline-demo --top-k 1
+```
+
+This performs real BGE query embedding and real local-Qdrant retrieval. It
+then sends the prompts to a small recording test double instead of claiming
+to call a live LLM. The command prints the exact context at the generation
+boundary, the resulting answer, and the citation-to-source mapping.
+
+For a live OpenAI-compatible chat endpoint, expose the settings to the
+process and omit `--offline-demo`. The defaults target Ollama's compatible
+endpoint, but that server and its model must be installed and running:
+
+```powershell
+$env:LLM_BASE_URL = "http://localhost:11434/v1"
+$env:LLM_MODEL = "llama3.2"
+# Set LLM_API_KEY when required by the chosen endpoint.
+.\.venv\Scripts\python.exe scripts/demo_rag.py --top-k 3
+```
+
+The project intentionally does not load `.env` files automatically. Values
+in `.env.example` are documentation; set process variables using your shell,
+IDE, container, or secret manager. Never commit a populated `.env` file.
+
+`VectorRetriever` owns question embedding and Qdrant search. It returns
+ranked `RetrievedChunk` values and knows nothing about prompts or LLMs.
+`generation/prompting.py` turns those values into labeled context. The
+`LanguageModel` protocol and its OpenAI-compatible adapter know nothing about
+Qdrant. `RAGPipeline` is the thin orchestrator connecting those boundaries.
+
+`top-k` is the maximum number of vector matches included. Increasing it can
+recover missing evidence but also introduces noise and consumes more of the
+LLM context window. Phase 6 does not yet enforce a token budget or relevance
+threshold, so callers must choose it deliberately.
+
+The system instruction says to use only supplied evidence, treat retrieved
+text as untrusted data, cite labels such as `[1]`, and admit when context is
+insufficient. Each label maps to a returned source, physical page, and chunk
+ID. This improves traceability but is not a correctness guarantee: retrieval
+can miss evidence, source documents can be wrong, and a model can still
+misread context, invent a claim, or attach the wrong citation. Applications
+must display and verify cited evidence rather than treating fluency as proof.
+
+The HTTP adapter posts system and user messages to
+`{LLM_BASE_URL}/chat/completions` with temperature zero. It uses only the
+Python standard library, validates the response, hides API keys from object
+representations, and raises `LLMGenerationError` for connection or response
+failures. Provider-specific authentication, retries, streaming, rate limits,
+token accounting, and structured outputs remain outside this basic phase.
+
 ## Structure
 
 - `src/hybrid_rag/`: application package and future component subpackages.
-- `tests/`: PDF loader and chunker tests.
-- `scripts/`: PDF loading, sample generation, and chunk-size comparison.
+- `tests/`: offline tests for ingestion, embeddings, Qdrant, and basic RAG.
+- `scripts/`: runnable demonstrations for each completed phase.
 - `data/sample/`: small, shareable example documents.
 - `data/raw/`: local input documents, excluded from Git.
 - `data/processed/`: generated data, excluded from Git.
@@ -300,7 +362,7 @@ Empty folders contain `.gitkeep` files because Git tracks files, not folders.
 
 ## Configuration
 
-`.env.example` is a public template. Qdrant settings read the process
+`.env.example` is a public template. Qdrant and LLM settings read the process
 environment; `.env` files are not loaded automatically.
 Keep real credentials out of source control. Git ignore rules do not remove
 files that have already been tracked.
@@ -308,5 +370,5 @@ files that have already been tracked.
 ## Direction
 
 Documents will be parsed, cleaned, chunked, and indexed in Qdrant and BM25.
-Queries will use both retrievers, result fusion, reranking, bounded context,
-and LLM generation with citations. Evaluation and an HTTP service follow.
+Later phases will add lexical retrieval, fusion, reranking, bounded context,
+evaluation, and an HTTP service around the basic cited generation flow.

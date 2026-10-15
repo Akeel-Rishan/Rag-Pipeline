@@ -1,1 +1,1 @@
-"""Future context construction and answer generation components."""
+"""Prompt construction and language-model adapters."""
