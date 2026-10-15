@@ -5,8 +5,7 @@ import re
 
 from hybrid_rag.generation.base import LanguageModel
 from hybrid_rag.generation.prompting import SYSTEM_PROMPT, build_context, build_user_prompt
-from hybrid_rag.retrieval.base import RetrievedChunk
-from hybrid_rag.retrieval.vector import VectorRetriever
+from hybrid_rag.retrieval.base import RetrievedChunk, Retriever
 
 
 @dataclass(frozen=True)
@@ -29,7 +28,7 @@ class RAGResult:
 class RAGPipeline:
     """Connect retrieval, transparent context construction, and generation."""
 
-    def __init__(self, retriever: VectorRetriever, llm: LanguageModel) -> None:
+    def __init__(self, retriever: Retriever, llm: LanguageModel) -> None:
         self.retriever = retriever
         self.llm = llm
 

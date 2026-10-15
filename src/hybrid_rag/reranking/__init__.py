@@ -1,1 +1,1 @@
-"""Future candidate reranking components."""
+"""Cross-encoder scoring and candidate reranking components."""

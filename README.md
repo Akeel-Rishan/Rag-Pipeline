@@ -5,9 +5,8 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 8 combines independent vector and BM25 rankings with configurable
-weighted Reciprocal Rank Fusion (RRF). There is no score addition, learned
-reranking, conversation memory, or retrieval evaluation yet.
+Phase 9 adds local cross-encoder reranking after configurable hybrid candidate
+retrieval. There is no conversation memory or retrieval evaluation yet.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -437,6 +436,59 @@ by best component rank and then chunk ID. This is a stability rule, not an
 additional relevance signal. Phase 8 performs retrieval only; it does not yet
 feed hybrid results into the RAG generator or add a learned reranker.
 
+## Cross-encoder reranking (Phase 9)
+
+The Phase 9 retrieval path is:
+
+```text
+vector + BM25 -> RRF hybrid candidates -> cross-encoder -> final chunks -> LLM
+```
+
+Run the real local-model demonstration:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/demo_reranking.py
+.\.venv\Scripts\python.exe scripts/demo_reranking.py `
+  "When can project notes be deleted during an active investigation?" `
+  --retrieve-k 20 --final-k 5
+```
+
+The first run downloads the roughly 80 MB
+`Xenova/ms-marco-MiniLM-L-6-v2` ONNX model into the ignored FastEmbed cache.
+The demo uses smaller 400-character chunks and isolated in-memory Qdrant so it
+has enough candidates without mixing them into the persistent Phase 5 index.
+
+Retrieval and reranking have different objectives. Bi-encoder retrieval
+embeds the query and documents independently, allowing document vectors to be
+precomputed and searched cheaply. It aims for high recall across the full
+corpus. A cross-encoder jointly processes each query-candidate pair, allowing
+token-level interaction and generally finer relevance judgments. Its work
+cannot be precomputed for arbitrary queries, so latency grows with candidate
+count.
+
+`RerankingConfig` independently controls `retrieve_k` (default 20) and
+`final_k` (default 5), with `final_k <= retrieve_k`. A larger candidate set can
+improve recall but requires more cross-encoder inference. A smaller final set
+reduces LLM context cost and distraction but can omit supporting evidence.
+The cross-encoder score replaces the hybrid score only for ordering retrieved
+candidates; it cannot recover a chunk absent from the candidate set.
+
+The real teaching-corpus run found eight available candidates. The relevant
+archival-rule chunk remained first, scoring `6.293621`. Chunks originally at
+hybrid ranks 7 and 8 moved to reranked positions 3 and 5; they discuss record
+replacement and provenance, while some removed candidates focus on generic
+boundaries or extraction. Cross-encoder outputs may be negative logits and
+are not probabilities or universal thresholds—their relative ranking within
+the candidate set is what this phase uses.
+
+`RelevanceScorer` keeps the orchestration model-independent.
+`FastEmbedCrossEncoder` supplies the real local implementation, and
+`RerankingRetriever.run()` returns both the original candidate list and final
+ranking for inspection. Its ordinary `retrieve()` method also satisfies the
+shared retriever boundary, so the existing `RAGPipeline` can receive reranked
+chunks by requesting the configured final count. No LLM call is made by the
+reranking demo itself.
+
 ## Structure
 
 - `src/hybrid_rag/`: application package and future component subpackages.
@@ -460,6 +512,6 @@ files that have already been tracked.
 
 ## Direction
 
-Documents are parsed, chunked, and indexed for vector and BM25 retrieval, then
-their ranks can be fused with RRF. Later phases will add reranking, bounded
-context, evaluation, and an HTTP service around the cited generation flow.
+Documents are parsed, chunked, indexed for vector and BM25 retrieval, fused
+with RRF, and optionally cross-encoder reranked before cited generation. Later
+phases will add bounded context, evaluation, and an HTTP service.
