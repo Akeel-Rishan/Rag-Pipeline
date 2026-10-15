@@ -5,9 +5,9 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 7 adds an independent, transparent BM25 keyword retriever and a
-side-by-side comparison with vector retrieval. There is no fusion, reranking,
-conversation memory, or retrieval evaluation yet.
+Phase 8 combines independent vector and BM25 rankings with configurable
+weighted Reciprocal Rank Fusion (RRF). There is no score addition, learned
+reranking, conversation memory, or retrieval evaluation yet.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -390,6 +390,53 @@ exact names, codes, identifiers, versions, and rare technical terms. Their
 different failure modes are why they can complement each other later. Phase 7
 keeps them separate so their behavior can be inspected before fusion is added.
 
+## Hybrid retrieval with RRF (Phase 8)
+
+Run three vector/BM25/hybrid comparisons with full RRF calculations:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/demo_hybrid_retrieval.py
+```
+
+Run one custom query or adjust fusion settings:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/demo_hybrid_retrieval.py `
+  --query "Why keep source and page metadata?" `
+  --top-k 3 --candidate-k 20 --rrf-k 60 `
+  --vector-weight 1 --bm25-weight 1
+```
+
+Raw cosine and BM25 values are not directly compatible. Their scales and
+distributions vary independently, so adding them would arbitrarily favor the
+larger numeric scale. Query-local normalization also depends on the candidate
+set and can be distorted by outliers. RRF instead uses only rank positions:
+
+```text
+RRF(chunk) = vector_weight / (rank_constant + vector_rank)
+           + bm25_weight   / (rank_constant + bm25_rank)
+```
+
+A missing result contributes zero for that retriever. The default rank
+constant is 60, following the common RRF choice; it smooths the difference
+between adjacent ranks. `candidate_k` controls how deeply each component is
+searched before fusion, while `top-k` controls the number of fused results
+returned. Candidate depth must be large enough to give fusion useful choices.
+
+`RRFConfig` validates a nonnegative integer rank constant, a positive candidate
+depth, finite nonnegative weights, and at least one positive weight. Every
+`HybridRetrievedChunk` retains component ranks, raw diagnostic scores, and
+individual weighted contributions. Raw scores are displayed for inspection
+but never used in fusion. Results found by both retrievers receive both
+contributions, which rewards cross-retriever agreement without requiring
+calibrated scores.
+
+Equal RRF scores are possible—for example when one chunk ranks `(1, 3)` and
+another ranks `(3, 1)` with equal weights. Ties are resolved deterministically
+by best component rank and then chunk ID. This is a stability rule, not an
+additional relevance signal. Phase 8 performs retrieval only; it does not yet
+feed hybrid results into the RAG generator or add a learned reranker.
+
 ## Structure
 
 - `src/hybrid_rag/`: application package and future component subpackages.
@@ -413,6 +460,6 @@ files that have already been tracked.
 
 ## Direction
 
-Documents will be parsed, cleaned, chunked, and indexed in Qdrant and BM25.
-Later phases will add lexical retrieval, fusion, reranking, bounded context,
-evaluation, and an HTTP service around the basic cited generation flow.
+Documents are parsed, chunked, and indexed for vector and BM25 retrieval, then
+their ranks can be fused with RRF. Later phases will add reranking, bounded
+context, evaluation, and an HTTP service around the cited generation flow.

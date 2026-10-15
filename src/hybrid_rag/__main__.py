@@ -3,7 +3,7 @@
 
 def main() -> None:
     """Confirm that Python can run the installed package."""
-    print("Hybrid RAG: BM25 comparison is ready. Run scripts/compare_retrievers.py.")
+    print("Hybrid RAG: weighted RRF is ready. Run scripts/demo_hybrid_retrieval.py.")
 
 
 if __name__ == "__main__":
