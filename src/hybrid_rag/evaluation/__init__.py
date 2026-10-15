@@ -1,1 +1,1 @@
-"""Future retrieval and answer evaluation components."""
+"""Transparent retrieval and generation evaluation utilities."""

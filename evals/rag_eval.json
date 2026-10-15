@@ -1,0 +1,56 @@
+[
+  {
+    "id": "active-investigation-retention",
+    "question": "When can project notes be deleted during an active investigation?",
+    "expected_answer": "Project notes must remain available until the active investigation ends, even if seven years have passed.",
+    "relevant_chunk_ids": ["fd176117-feb9-58f8-b4fa-028e79fd0666"],
+    "expected_evidence": [{"source": "chunking_example.txt", "page": 1}]
+  },
+  {
+    "id": "scans-and-tables",
+    "question": "What extraction problems can scanned pages and tables cause?",
+    "expected_answer": "A scanned page may have no text layer, and a table may become a word sequence whose relationships are difficult to recover.",
+    "relevant_chunk_ids": [
+      "52f4878e-ac58-566f-a4d0-7a5238a91a0e",
+      "802eef7a-7e2d-50ea-9f00-5e0041a69c42"
+    ],
+    "expected_evidence": [{"source": "chunking_example.txt", "page": 1}]
+  },
+  {
+    "id": "retrieval-unit",
+    "question": "Why can chunks be better retrieval units than complete pages?",
+    "expected_answer": "A page can contain unrelated sections or split an explanation across pages, while a smaller chunk can focus retrieval on a particular fact.",
+    "relevant_chunk_ids": [
+      "802eef7a-7e2d-50ea-9f00-5e0041a69c42",
+      "670e6066-26a8-523e-92a9-6f67923490d6"
+    ],
+    "expected_evidence": [{"source": "chunking_example.txt", "page": 1}]
+  },
+  {
+    "id": "overlap-purpose",
+    "question": "What does chunk overlap preserve, and what does it not guarantee?",
+    "expected_answer": "Overlap can keep a short explanation visible on both sides of a split, but it does not guarantee that a long argument or table fits in one chunk.",
+    "relevant_chunk_ids": ["ca1ae566-40bb-5a5d-9053-1e652a599909"],
+    "expected_evidence": [{"source": "chunking_example.txt", "page": 1}]
+  },
+  {
+    "id": "provenance",
+    "question": "Which provenance fields are retained, and why are they useful?",
+    "expected_answer": "Chunks retain source and page information so readers can locate the original evidence; chunk identifiers also help distinguish emitted records.",
+    "relevant_chunk_ids": [
+      "52f4878e-ac58-566f-a4d0-7a5238a91a0e",
+      "59a1381a-6b7b-5fc7-a2d1-1f8f9e915a30"
+    ],
+    "expected_evidence": [{"source": "chunking_example.txt", "page": 1}]
+  },
+  {
+    "id": "document-identity",
+    "question": "Why is a source filename insufficient as document identity?",
+    "expected_answer": "Identical filenames can occur in different folders, so ingestion needs a stable document identity and a way to replace old records.",
+    "relevant_chunk_ids": [
+      "59a1381a-6b7b-5fc7-a2d1-1f8f9e915a30",
+      "c6e35007-ac50-5443-abf7-04d678bb2e05"
+    ],
+    "expected_evidence": [{"source": "chunking_example.txt", "page": 1}]
+  }
+]

@@ -5,8 +5,9 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 9 adds local cross-encoder reranking after configurable hybrid candidate
-retrieval. There is no conversation memory or retrieval evaluation yet.
+Phase 10 adds a manually labeled evaluation set, explicit retrieval metrics,
+and transparent generation proxies comparing vector, hybrid, and reranked
+pipelines. There is no conversation memory or LLM-as-judge evaluation yet.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -489,6 +490,73 @@ shared retriever boundary, so the existing `RAGPipeline` can receive reranked
 chunks by requesting the configured final count. No LLM call is made by the
 reranking demo itself.
 
+## RAG evaluation (Phase 10)
+
+Run the reproducible comparison:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/evaluate_rag.py
+.\.venv\Scripts\python.exe scripts/evaluate_rag.py --k 5
+```
+
+The manually curated `evals/rag_eval.json` contains six questions, expected
+answers, stable relevant chunk IDs, and expected source/page evidence. It uses
+the fixed corpus identity `eval/chunking_example.txt`, 400-character chunks,
+and 50-character overlap. The runner refuses to evaluate if those chunk IDs no
+longer match the corpus, preventing silently stale labels.
+
+Retrieval metrics are calculated directly from the human labels:
+
+- `Recall@K`: labeled relevant chunks retrieved in the first K divided by all
+  labeled relevant chunks.
+- `Precision@K`: labeled relevant chunks in the first K divided by K.
+- `MRR`: reciprocal position of the first relevant chunk, averaged over cases.
+- `ContextRel`: defined in this baseline as manually labeled Precision@K.
+
+Generation metrics are deliberately simple and inspectable:
+
+- `AnswerRel`: token F1 against the manually written expected answer.
+- `Faithful`: fraction of answer claims whose tokens are at least 70% covered
+  by the supplied context.
+- `Grounded`: fraction of all answer tokens present in the context.
+- `Halluc.`: one minus claim-level faithfulness.
+
+These lexical proxies do not understand paraphrases, contradiction, entailment,
+or whether a supported sentence was interpreted correctly. They are useful for
+testing evaluation plumbing, not for claiming production answer quality.
+
+By default all systems use the same deterministic extractive answer proxy so
+the comparison isolates context differences and is repeatable without an API.
+It is explicitly not an LLM. With a configured OpenAI-compatible endpoint,
+`--live-llm` evaluates actual generated answers using the same metrics:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/evaluate_rag.py --live-llm
+```
+
+The default K=3 is discriminating for this eight-chunk teaching corpus:
+
+```text
+System               Recall@3  Precision@3  MRR    AnswerRel
+vector-only             0.917        0.500  0.833      0.379
+hybrid-RRF              1.000        0.556  1.000      0.406
+hybrid+reranking        1.000        0.556  1.000      0.398
+```
+
+All extractive answers score 1.0 faithfulness/groundedness and 0.0
+hallucination by construction. That validates support tracking but does not
+show that an LLM would be faithful. At K=5 every system reaches 1.0 recall, so
+that cutoff saturates and hides differences on this small corpus. Results and
+per-case traces are written to the ignored
+`evals/reports/phase_10_results.json` file.
+
+RAGAS is intentionally not installed in this phase. Its semantic and
+faithfulness metrics would require an evaluator LLM/embedding model, introduce
+cost and nondeterminism, and still need validation against human judgments.
+It becomes useful after freezing a larger test set, evaluator model/version,
+prompts, budgets, and a human-reviewed calibration subset. The transparent
+metrics here remain valuable as regression tests even after adding a framework.
+
 ## Structure
 
 - `src/hybrid_rag/`: application package and future component subpackages.
@@ -513,5 +581,5 @@ files that have already been tracked.
 ## Direction
 
 Documents are parsed, chunked, indexed for vector and BM25 retrieval, fused
-with RRF, and optionally cross-encoder reranked before cited generation. Later
-phases will add bounded context, evaluation, and an HTTP service.
+with RRF, optionally reranked, and evaluated against manual evidence labels.
+Later phases will add bounded context, richer evaluation, and an HTTP service.
