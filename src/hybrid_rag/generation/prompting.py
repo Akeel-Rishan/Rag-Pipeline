@@ -1,6 +1,6 @@
 """Build a bounded, inspectable RAG context and prompt."""
 
-from hybrid_rag.retrieval.vector import RetrievedChunk
+from hybrid_rag.retrieval.base import RetrievedChunk
 
 
 SYSTEM_PROMPT = """You are an evidence-based question-answering assistant.

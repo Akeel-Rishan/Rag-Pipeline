@@ -5,9 +5,9 @@ and evidence-based answer generation.
 
 ## Current scope
 
-Phase 6 adds basic vector retrieval, inspectable context construction,
-OpenAI-compatible answer generation, and source/page citations. There is no
-BM25, fusion, reranking, conversation memory, or retrieval evaluation yet.
+Phase 7 adds an independent, transparent BM25 keyword retriever and a
+side-by-side comparison with vector retrieval. There is no fusion, reranking,
+conversation memory, or retrieval evaluation yet.
 
 Requires Python 3.12 or newer. Development currently uses Python 3.12.
 
@@ -345,6 +345,50 @@ Python standard library, validates the response, hides API keys from object
 representations, and raises `LLMGenerationError` for connection or response
 failures. Provider-specific authentication, retries, streaming, rate limits,
 token accounting, and structured outputs remain outside this basic phase.
+
+## BM25 keyword retrieval (Phase 7)
+
+Run both independent retrievers against exactly the same query and chunks:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/compare_retrievers.py
+.\.venv\Scripts\python.exe scripts/compare_retrievers.py "ERR-8492"
+```
+
+The default comparison query is `Why keep source and page metadata?`. The
+script prints vector results and BM25 results in separate columns. It does not
+combine, normalize, fuse, or rerank them, and it performs no LLM generation.
+Cosine and BM25 scores have different meanings and must not be compared as if
+they shared a scale.
+
+BM25 is lexical retrieval: it ranks chunks using actual query terms. For each
+term, the implementation combines its frequency in a chunk, its rarity across
+the corpus, and the chunk length relative to the average chunk length:
+
+```text
+IDF(t) = log(1 + (N - df(t) + 0.5) / (df(t) + 0.5))
+
+score(t, d) = IDF(t) * tf(t,d) * (k1 + 1)
+              / (tf(t,d) + k1 * (1 - b + b * length(d) / average_length))
+```
+
+The defaults are `k1=1.5` and `b=0.75`. `k1` controls term-frequency
+saturation: repeated occurrences help, but with diminishing returns. `b`
+controls document-length normalization so a long chunk is not rewarded merely
+for having more opportunities to contain a word. The implementation uses the
+always-positive Robertson-style IDF shown above.
+
+The tokenizer case-folds text and preserves common separators in identifiers
+such as `ERR-8492`, `API/v1`, and `foo_bar`. It is intentionally simple: there
+is no stemming, lemmatization, language-specific analysis, synonym expansion,
+or stop-word list. BM25 is built in memory from a fixed chunk list; changing
+the corpus requires constructing a new index.
+
+Vector retrieval can rank paraphrases even when few literal words overlap.
+BM25 cannot infer those semantic relationships, but it is often stronger for
+exact names, codes, identifiers, versions, and rare technical terms. Their
+different failure modes are why they can complement each other later. Phase 7
+keeps them separate so their behavior can be inspected before fusion is added.
 
 ## Structure
 

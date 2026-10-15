@@ -6,7 +6,8 @@ from qdrant_client import QdrantClient
 from hybrid_rag.generation.prompting import SYSTEM_PROMPT, build_context
 from hybrid_rag.ingestion.indexing import index_document
 from hybrid_rag.rag import RAGPipeline
-from hybrid_rag.retrieval.vector import RetrievedChunk, VectorRetriever
+from hybrid_rag.retrieval.base import RetrievedChunk
+from hybrid_rag.retrieval.vector import VectorRetriever
 from hybrid_rag.storage.qdrant_store import QdrantStore
 
 

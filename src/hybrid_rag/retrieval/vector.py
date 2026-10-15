@@ -1,20 +1,8 @@
 """Vector retrieval over the Qdrant storage boundary."""
 
-from dataclasses import dataclass
-
 from hybrid_rag.embeddings.base import EmbeddingService
+from hybrid_rag.retrieval.base import RetrievedChunk
 from hybrid_rag.storage.qdrant_store import QdrantStore
-
-
-@dataclass(frozen=True)
-class RetrievedChunk:
-    """One ranked piece of evidence returned by retrieval."""
-
-    chunk_id: str
-    text: str
-    page: int
-    source: str
-    score: float
 
 
 class VectorRetriever:
